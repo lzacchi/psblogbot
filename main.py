@@ -1,35 +1,21 @@
 """A script that fetches and displays Playstation Blog's latest news."""
-from bs4 import BeautifulSoup
 import config
+from digrss import Digrss
 import logging
-import requests
 from telegram import Bot
-import time
+
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 bot = Bot(config.TOKEN)
 
-r = requests.get("https://blog.us.playstation.com/")
+with Digrss(feeds_file_path='feeds.json', interval=config.INTERVAL,
+            fetch_old=True) as file:
+    for entry in file:
+        msg = (f'<b>{entry.title}</b>\n\n{entry.summary}\n'
+               f'<a href="{entry.link}">{config.MORE}</a>')
+        msg = msg.replace('<br>', '\n')
 
-data = r.text
-
-soup = BeautifulSoup(data, "lxml")
-
-featured_post = soup.find('div', {"class": "wrap-entry"})
-
-bot.sendMessage(chat_id='@psblog_channel',
-                text=featured_post.a.get('href'))
-
-while True:
-    candidate = requests.get('https://blog.us.playstation.com/')
-    cnd_data = r.text
-    cnd_soup = BeautifulSoup(cnd_data, "lxml")
-    cnd_featured = cnd_soup.find('div', {"class": "wrap-entry"})
-    if featured_post != cnd_featured:
-        featured_post = cnd_featured
-        bot.sendMessage(chat_id='@psblog_channel',
-                        text=featured_post.a.get('href'))
-    if candidate.status_code != 200:
-        time.sleep(3600)
+        bot.sendMessage(chat_id='@psblog_channel', text=msg, parse_mode="HTML",
+                        disable_web_page_preview=True)
